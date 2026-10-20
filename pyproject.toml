@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyskewt"
+version = "2.0.0"
+description = "Modern, high-performance Skew-T ln-P thermodynamic diagram and atmospheric sounding analysis in Python"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "GPL-3.0" }
+authors = [
+    { name = "rodriuru" }
+]
+keywords = ["meteorology", "skew-t", "radiosonde", "thermodynamics", "atmospheric-science", "weather", "cape"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Atmospheric Science",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "numpy>=1.20.0",
+    "matplotlib>=3.5.0",
+    "scipy>=1.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
+[project.scripts]
+pyskewt = "pyskewt.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/rodriuru/PyskewT"
+Repository = "https://github.com/rodriuru/PyskewT"
+"Issue Tracker" = "https://github.com/rodriuru/PyskewT/issues"
