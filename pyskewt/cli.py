@@ -14,6 +14,12 @@ def main() -> int:
     )
     parser.add_argument("archivo", help="Ruta al archivo de sondeo (formato Wyoming o columnas numéricas)")
     parser.add_argument("-o", "--output", default="skewt_output.png", help="Nombre del archivo de imagen de salida (default: skewt_output.png)")
+    parser.add_argument(
+        "--theme",
+        choices=["modern", "dark", "classic", "accessible"],
+        default="modern",
+        help="Paleta de colores para el diagrama: modern, dark, classic, accessible (default: modern)"
+    )
     parser.add_argument("--dpi", type=int, default=300, help="Resolución DPI de la imagen (default: 300)")
     parser.add_argument("--title", default="Sondeo Atmosférico - Skew-T ln-P", help="Título del diagrama")
     parser.add_argument("--no-winds", action="store_true", help="Desactivar trazado de barbas de viento")
@@ -31,7 +37,7 @@ def main() -> int:
 
     print(f"Sondeo cargado: {len(sounding)} niveles (desde {sounding.pressure[0]:.1f} hPa hasta {sounding.pressure[-1]:.1f} hPa)")
     
-    skew = SkewT(with_wind_barbs=not args.no_winds)
+    skew = SkewT(with_wind_barbs=not args.no_winds, theme=args.theme)
     skew.draw_background()
 
     indices = skew.plot_sounding(

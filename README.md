@@ -23,8 +23,9 @@
   * **LFC** (Nivel de Convección Libre) y **EL** (Nivel de Equilibrio).
   * **CAPE** (*Convective Available Potential Energy*) y **CIN** (*Convective Inhibition*).
   * **Lifted Index (LI)**, **K-Index**, **Total Totals (TT)** y **Agua Precipitable (PW)**.
-* 🎨 **Visualización de Calidad de Publicación:**
-  * Sombreado automático de **CAPE** (rojo traslúcido) y **CIN** (azul celeste).
+* 🎨 **Visualización de Calidad de Publicación y Temas:**
+  * **Sistema de Paletas de Colores:** Alterná instantáneamente entre **`modern`** (limpio y de alto contraste), **`dark`** (modo oscuro operacional), **`classic`** (estilo papel meteorológico tradicional) o **`accessible`** (seguro para daltonismo / Okabe-Ito).
+  * Sombreado automático de **CAPE** (rojo/coral traslúcido) y **CIN** (azul celeste/cian).
   * Trayectoria gráfica del ascenso de la parcela superficial ($T_{parcel}$).
   * Resalte visual de la **isoterma de 0°C** (nivel de congelamiento) en azul celeste.
   * Columna lateral dedicada para **barbas de viento** (*wind barbs*) con muestreo inteligente anti-solapamiento.
@@ -65,16 +66,22 @@ pip install .
 Generar un diagrama completo a partir de un sondeo en formato Wyoming (`sondeo3.txt`):
 
 ```bash
-# Ejecutar módulo
-python3 -m pyskewt sondeo3.txt -o sondeo_analisis.png
+# Ejecutar con el tema por defecto (modern)
+python3 -m pyskewt sondeo3.txt -o sondeo_modern.png
 
-# O mediante el comando instalado
-pyskewt sondeo3.txt --dpi 300 -o mi_grafico.png
+# O en Modo Oscuro (ideal para dashboards o pantallas nocturnas)
+python3 -m pyskewt sondeo3.txt --theme dark -o sondeo_dark.png
+
+# O con paleta Accesible (segura para daltonismo)
+python3 -m pyskewt sondeo3.txt --theme accessible -o sondeo_accessible.png
+
+# O estilo Clásico tradicional de papel
+python3 -m pyskewt sondeo3.txt --theme classic -o sondeo_classic.png
 ```
 
 Opciones disponibles en el CLI:
 ```text
-pyskewt [-h] [-o OUTPUT] [--dpi DPI] [--title TITLE] [--no-winds] [--no-parcel] [--show] archivo
+pyskewt [-h] [-o OUTPUT] [--theme {modern,dark,classic,accessible}] [--dpi DPI] [--title TITLE] [--no-winds] [--no-parcel] [--show] archivo
 ```
 
 ### 2. Desde Script de Python (API v2)
@@ -85,8 +92,8 @@ from pyskewt import SkewT, Sounding
 # 1. Cargar sondeo (formato Wyoming o texto)
 sounding = Sounding.from_file("sondeo3.txt")
 
-# 2. Inicializar diagrama con barbas de viento
-skew = SkewT(with_wind_barbs=True)
+# 2. Inicializar diagrama seleccionando tema ('modern', 'dark', 'classic', o 'accessible')
+skew = SkewT(theme="dark", with_wind_barbs=True)
 
 # 3. Dibujar grilla termodinámica de fondo
 skew.draw_background()
@@ -97,11 +104,11 @@ indices = skew.plot_sounding(
     plot_parcel=True,
     shade_cape_cin=True,
     plot_winds=True,
-    title="Sondeo Atmosférico - PySkewT v2"
+    title="Sondeo Atmosférico - Skew-T ln-P (Modo Oscuro)"
 )
 
 # 5. Guardar en alta definición
-skew.save("salida.png", dpi=300)
+skew.save("salida_dark.png", dpi=300)
 print(f"CAPE: {indices['cape']:.1f} J/kg | LCL: {indices['p_lcl']:.1f} hPa")
 ```
 

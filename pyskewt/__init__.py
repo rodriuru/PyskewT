@@ -6,6 +6,7 @@ Version 2.0.0
 
 from .skewt import SkewT
 from .sounding import Sounding
+from .theme import Theme, get_theme, list_themes
 from .thermo import (
     calculate_convective_indices,
     lifting_condensation_level,
@@ -26,6 +27,9 @@ __author__ = "rodriuru"
 __all__ = [
     "SkewT",
     "Sounding",
+    "Theme",
+    "get_theme",
+    "list_themes",
     "calculate_convective_indices",
     "lifting_condensation_level",
     "parcel_ascent_profile",

@@ -8,6 +8,7 @@ from matplotlib.collections import LineCollection
 from typing import Optional, Union, Tuple, Dict, Any, List
 
 from .constants import P_STD, DEFAULT_P_BOT, DEFAULT_P_TOP
+from .theme import Theme, get_theme
 from .thermo import (
     temperature_at_potential_temperature,
     dewpoint_from_vapor_pressure,
@@ -31,6 +32,7 @@ class SkewT:
         t_max: float = 45.0,
         beta: float = 40.0,
         with_wind_barbs: bool = True,
+        theme: Union[str, Theme] = "modern",
         figsize: Tuple[float, float] = (10, 11),
     ):
         self.p_bot = float(p_bot)
@@ -39,6 +41,7 @@ class SkewT:
         self.t_max = float(t_max)
         self.beta = float(beta)
         self.with_wind_barbs = with_wind_barbs
+        self.theme = get_theme(theme)
 
         if fig is None or ax is None:
             if with_wind_barbs and ax_wind is None:
@@ -58,11 +61,20 @@ class SkewT:
         self._setup_axes()
 
     def _setup_axes(self) -> None:
-        """Configure coordinate limits, scales, and labels for the thermodynamic diagram."""
+        """Configure coordinate limits, scales, colors, and labels according to theme."""
+        # Canvas background colors
+        self.fig.patch.set_facecolor(self.theme.bg_color)
+        self.ax.set_facecolor(self.theme.bg_color)
+
         ax = self.ax
         ax.set_yscale("log")
         ax.set_ylim(self.p_bot, self.p_top)
         ax.set_xlim(self.t_min, self.t_max)
+
+        # Spines and axis border colors
+        for spine in ax.spines.values():
+            spine.set_color(self.theme.fg_color)
+            spine.set_linewidth(0.8)
 
         # Standard pressure levels in hPa
         standard_p = np.array([1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100])
@@ -70,21 +82,31 @@ class SkewT:
         ticks_p = standard_p[mask]
 
         ax.set_yticks(ticks_p)
-        ax.set_yticklabels([f"{int(p)}" for p in ticks_p], fontsize=9, fontweight="bold", color="#333333")
-        ax.tick_params(which="both", left=True, right=True, labelleft=True, labelright=True, direction="in")
+        ax.set_yticklabels(
+            [f"{int(p)}" for p in ticks_p],
+            fontsize=9, fontweight="bold", color=self.theme.fg_color
+        )
+        ax.tick_params(
+            which="both", left=True, right=True, labelleft=True, labelright=True,
+            direction="in", colors=self.theme.fg_color
+        )
 
         # Bottom Temperature axis
         t_ticks = np.arange(int(self.t_min), int(self.t_max) + 1, 10)
         ax.set_xticks(t_ticks)
-        ax.set_xticklabels([f"{t}°C" for t in t_ticks], fontsize=9, fontweight="bold", color="#333333")
-        ax.tick_params(bottom=True, top=False, direction="in")
+        ax.set_xticklabels(
+            [f"{t}°C" for t in t_ticks],
+            fontsize=9, fontweight="bold", color=self.theme.fg_color
+        )
+        ax.tick_params(bottom=True, top=False, direction="in", colors=self.theme.fg_color)
 
-        ax.set_xlabel("Temperatura (°C) en 1000 hPa", fontsize=10, fontweight="bold", labelpad=8)
-        ax.set_ylabel("Presión (hPa)", fontsize=10, fontweight="bold", labelpad=8)
+        ax.set_xlabel("Temperatura (°C) en 1000 hPa", fontsize=10, fontweight="bold", labelpad=8, color=self.theme.fg_color)
+        ax.set_ylabel("Presión (hPa)", fontsize=10, fontweight="bold", labelpad=8, color=self.theme.fg_color)
         ax.grid(False)
 
         # Setup wind axis if enabled
         if self.ax_wind is not None:
+            self.ax_wind.set_facecolor(self.theme.bg_color)
             self.ax_wind.set_ylim(self.p_bot, self.p_top)
             self.ax_wind.set_xlim(-1.2, 1.2)
             self.ax_wind.axis("off")
@@ -97,11 +119,12 @@ class SkewT:
 
     def draw_isobars(
         self,
-        color: str = "#b8a896",
+        color: Optional[str] = None,
         linewidth: float = 0.7,
         levels: Optional[List[float]] = None,
     ) -> None:
         """Draw horizontal isobar lines at standard atmospheric pressure levels."""
+        c = color or self.theme.grid_isobars
         if levels is None:
             levels = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100]
 
@@ -110,17 +133,21 @@ class SkewT:
             if self.p_top <= p <= self.p_bot:
                 lines.append([(self.t_min - 20, p), (self.t_max + 60, p)])
 
-        lc = LineCollection(lines, colors=color, linewidths=linewidth, zorder=1)
+        lc = LineCollection(lines, colors=c, linewidths=linewidth, zorder=1)
         self.ax.add_collection(lc)
 
     def draw_isotherms(
         self,
         step: float = 10.0,
-        color: str = "#d4b292",
+        color: Optional[str] = None,
+        zero_color: Optional[str] = None,
         linewidth: float = 0.5,
         highlight_zero: bool = True,
     ) -> None:
         """Draw slanted isotherm lines across the diagram using LineCollection."""
+        c = color or self.theme.grid_isotherms
+        z_c = zero_color or self.theme.grid_zero_isotherm
+
         p_pts = np.array([self.p_bot, self.p_top])
         t_range = np.arange(-100, 80, step)
 
@@ -136,25 +163,26 @@ class SkewT:
                 lines.append(segment)
 
         if lines:
-            lc = LineCollection(lines, colors=color, linewidths=linewidth, zorder=1)
+            lc = LineCollection(lines, colors=c, linewidths=linewidth, zorder=1)
             self.ax.add_collection(lc)
 
         # Highlight 0°C isotherm (freezing level)
         if zero_line is not None:
             self.ax.plot(
                 zero_line[:, 0], zero_line[:, 1],
-                color="#0284c7", linewidth=1.2, linestyle="-",
-                label="Isoterm 0°C", zorder=2
+                color=z_c, linewidth=1.2, linestyle="-",
+                label="Isoterma 0°C", zorder=2
             )
 
     def draw_dry_adiabats(
         self,
         theta_step: float = 10.0,
-        color: str = "#d97706",
+        color: Optional[str] = None,
         linewidth: float = 0.55,
         alpha: float = 0.65,
     ) -> None:
         """Draw dry adiabats (isentropes) lines of constant potential temperature theta."""
+        c = color or self.theme.grid_dry_adiabats
         p_pts = np.linspace(self.p_bot, self.p_top, 80)
         theta_range = np.arange(220, 480, theta_step)
 
@@ -164,17 +192,18 @@ class SkewT:
             x_pts = self.t_p_to_x(t_c, p_pts)
             lines.append(np.column_stack([x_pts, p_pts]))
 
-        lc = LineCollection(lines, colors=color, linewidths=linewidth, alpha=alpha, zorder=1)
+        lc = LineCollection(lines, colors=c, linewidths=linewidth, alpha=alpha, zorder=1)
         self.ax.add_collection(lc)
 
     def draw_moist_adiabats(
         self,
         tw_range: Optional[List[float]] = None,
-        color: str = "#059669",
+        color: Optional[str] = None,
         linewidth: float = 0.65,
         alpha: float = 0.7,
     ) -> None:
         """Draw moist pseudo-adiabats using high-order Runge-Kutta integration."""
+        c = color or self.theme.grid_moist_adiabats
         if tw_range is None:
             tw_range = [-8, -4, 0, 4, 8, 12, 16, 20, 24, 28, 32, 36]
 
@@ -185,17 +214,18 @@ class SkewT:
             x_pts = self.t_p_to_x(t_prof, p_pts)
             lines.append(np.column_stack([x_pts, p_pts]))
 
-        lc = LineCollection(lines, colors=color, linewidths=linewidth, alpha=alpha, zorder=1)
+        lc = LineCollection(lines, colors=c, linewidths=linewidth, alpha=alpha, zorder=1)
         self.ax.add_collection(lc)
 
     def draw_mixing_ratio_lines(
         self,
         ws_values: Optional[List[float]] = None,
-        color: str = "#0d9488",
+        color: Optional[str] = None,
         linewidth: float = 0.55,
         alpha: float = 0.65,
     ) -> None:
         """Draw saturation mixing ratio isohumes (ws in g/kg)."""
+        c = color or self.theme.grid_mixing_ratio
         if ws_values is None:
             ws_values = [0.4, 1.0, 2.0, 3.0, 5.0, 8.0, 12.0, 16.0, 20.0, 28.0]
 
@@ -204,7 +234,6 @@ class SkewT:
         lines = []
         for w_g in ws_values:
             w_kg = w_g * 1e-3
-            # e = p * w / (eps + w)
             e = (p_pts * w_kg) / (0.62198 + w_kg)
             t_c = dewpoint_from_vapor_pressure(e)
             x_pts = self.t_p_to_x(t_c, p_pts)
@@ -215,12 +244,12 @@ class SkewT:
             self.ax.text(
                 x_pts[idx_lbl], p_pts[idx_lbl],
                 f" {w_g:g}",
-                color=color, fontsize=6.5, rotation=45,
+                color=c, fontsize=6.5, rotation=45,
                 verticalalignment="bottom", alpha=0.85
             )
 
         lc = LineCollection(
-            lines, colors=color, linewidths=linewidth, linestyles="dashed", alpha=alpha, zorder=1
+            lines, colors=c, linewidths=linewidth, linestyles="dashed", alpha=alpha, zorder=1
         )
         self.ax.add_collection(lc)
 
@@ -239,10 +268,17 @@ class SkewT:
         shade_cape_cin: bool = True,
         plot_winds: bool = True,
         title: Optional[str] = "Diagrama Skew-T ln-P",
+        color_t: Optional[str] = None,
+        color_td: Optional[str] = None,
+        color_parcel: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Plot complete sounding profile, convective parcel ascent, CAPE/CIN shading and winds."""
         if isinstance(sounding, str):
             sounding = Sounding.from_file(sounding)
+
+        c_t = color_t or self.theme.temp_profile
+        c_td = color_td or self.theme.dewpoint_profile
+        c_parcel = color_parcel or self.theme.parcel_profile
 
         p = sounding.pressure
         t = sounding.temperature
@@ -252,14 +288,14 @@ class SkewT:
         x_t = self.t_p_to_x(t, p)
         x_td = self.t_p_to_x(td, p)
 
-        # Draw temperature profile (red)
+        # Draw temperature profile
         self.ax.plot(
-            x_t, p, color="#dc2626", linewidth=2.0, label="Temperatura (T)", zorder=4
+            x_t, p, color=c_t, linewidth=2.0, label="Temperatura (T)", zorder=4
         )
 
-        # Draw dew point profile (green)
+        # Draw dew point profile
         self.ax.plot(
-            x_td, p, color="#16a34a", linewidth=2.0, label="Punto de Rocío (Td)", zorder=4
+            x_td, p, color=c_td, linewidth=2.0, label="Punto de Rocío (Td)", zorder=4
         )
 
         # Compute thermodynamic indices
@@ -271,7 +307,7 @@ class SkewT:
             x_parcel = self.t_p_to_x(t_parcel, p_parcel)
 
             self.ax.plot(
-                x_parcel, p_parcel, color="#4b5563", linewidth=1.5, linestyle="--",
+                x_parcel, p_parcel, color=c_parcel, linewidth=1.5, linestyle="--",
                 label="Ascenso de Parcela", zorder=5
             )
 
@@ -280,11 +316,11 @@ class SkewT:
             t_lcl = indices["t_lcl"]
             x_lcl = self.t_p_to_x(t_lcl, p_lcl)
             self.ax.plot(
-                x_lcl, p_lcl, marker="o", markersize=5, color="#2563eb", zorder=6
+                x_lcl, p_lcl, marker="o", markersize=5, color=self.theme.lcl_marker, zorder=6
             )
             self.ax.text(
                 x_lcl + 1.5, p_lcl, f"LCL: {p_lcl:.0f} hPa",
-                fontsize=7.5, fontweight="bold", color="#1d4ed8", verticalalignment="center"
+                fontsize=7.5, fontweight="bold", color=self.theme.lcl_marker, verticalalignment="center"
             )
 
             # Shade CAPE and CIN
@@ -299,7 +335,7 @@ class SkewT:
                 if np.any(mask_cape):
                     self.ax.fill_betweenx(
                         p_parcel, x_env, x_parcel,
-                        where=mask_cape, color="#ef4444", alpha=0.32,
+                        where=mask_cape, color=self.theme.cape_fill, alpha=0.35,
                         label=f"CAPE ({indices['cape']:.0f} J/kg)", zorder=3
                     )
 
@@ -308,7 +344,7 @@ class SkewT:
                 if np.any(mask_cin):
                     self.ax.fill_betweenx(
                         p_parcel, x_env, x_parcel,
-                        where=mask_cin, color="#38bdf8", alpha=0.32,
+                        where=mask_cin, color=self.theme.cin_fill, alpha=0.35,
                         label=f"CIN ({indices['cin']:.0f} J/kg)", zorder=3
                     )
 
@@ -320,9 +356,14 @@ class SkewT:
         self.draw_indices_hud(indices)
 
         if title:
-            self.ax.set_title(title, fontsize=12, fontweight="bold", pad=12, color="#1e293b")
+            self.ax.set_title(title, fontsize=12, fontweight="bold", pad=12, color=self.theme.fg_color)
 
-        self.ax.legend(loc="upper right", fontsize=8, framealpha=0.9, edgecolor="#cbd5e1")
+        leg = self.ax.legend(loc="upper right", fontsize=8, framealpha=0.92)
+        leg.get_frame().set_facecolor(self.theme.hud_bg)
+        leg.get_frame().set_edgecolor(self.theme.hud_border)
+        for text in leg.get_texts():
+            text.set_color(self.theme.hud_text)
+
         return indices
 
     def _plot_wind_barbs(self, p: np.ndarray, u: np.ndarray, v: np.ndarray) -> None:
@@ -335,7 +376,6 @@ class SkewT:
         if len(p_v) == 0:
             return
 
-        # Subsample to avoid overcrowded overlapping barbs (every ~40-50 hPa)
         target_p = np.arange(self.p_bot, self.p_top - 1, -40)
         idx_chosen = []
         for tp in target_p:
@@ -350,7 +390,7 @@ class SkewT:
 
         self.ax_wind.barbs(
             np.zeros_like(p_sub), p_sub, u_sub, v_sub,
-            length=6, barbcolor="#1e293b", flagcolor="#dc2626", linewidth=0.8,
+            length=6, barbcolor=self.theme.wind_barbs, flagcolor=self.theme.wind_flags, linewidth=0.8,
             sizes=dict(emptybarb=0.08, spacing=0.2, height=0.5)
         )
 
@@ -377,17 +417,29 @@ class SkewT:
             f"• Agua Precipitable: {pw_str}"
         )
 
-        props = dict(boxstyle="round,pad=0.5", facecolor="#ffffff", edgecolor="#cbd5e1", alpha=0.92)
+        props = dict(
+            boxstyle="round,pad=0.5",
+            facecolor=self.theme.hud_bg,
+            edgecolor=self.theme.hud_border,
+            alpha=0.92
+        )
         self.ax.text(
             0.02, 0.98, text_content,
             transform=self.ax.transAxes,
             fontsize=8, verticalalignment="top", fontfamily="monospace",
+            color=self.theme.hud_text,
             bbox=props, zorder=10
         )
 
     def save(self, filepath: str, dpi: int = 300) -> None:
-        """Save high-resolution diagram to disk."""
-        self.fig.savefig(filepath, dpi=dpi, bbox_inches="tight")
+        """Save high-resolution diagram to disk preserving theme background."""
+        self.fig.savefig(
+            filepath,
+            dpi=dpi,
+            bbox_inches="tight",
+            facecolor=self.fig.get_facecolor(),
+            edgecolor="none"
+        )
 
     def show(self) -> None:
         """Display the diagram."""
@@ -415,7 +467,6 @@ class SkewT:
     def graficar(self, mat: np.ndarray) -> None:
         """Legacy v1 method: plot raw data matrix."""
         p = mat[:, 0]
-        # In v1, pressure might be in hPa or Pa
         if np.max(p) > 2000:
             p = p / 100.0
         temp = mat[:, 2]
